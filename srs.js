@@ -6,7 +6,7 @@
 'use strict';
 
 const SRS = {
-  LEARNING_STEPS_MIN: [10, 30, 120],
+  LEARNING_STEPS_MIN: [60, 480],
   GRADUATED_MIN: 24 * 60,
   EASE_START: 2.5,
   EASE_FLOOR: 1.3,
@@ -78,6 +78,10 @@ const SRS = {
   },
 
   baseOf(id) { return id.slice(0, id.lastIndexOf(':')); },
+  siblingId(id) {
+    const base = SRS.baseOf(id), d = id.slice(id.lastIndexOf(':') + 1);
+    return base + ':' + (d === 'it2es' ? 'es2it' : 'it2es');
+  },
 
   // Cards tagged deliver:"table" are a paradigm the grid and the matching
   // round teach as a system. They keep their schedule and their history --
@@ -95,7 +99,14 @@ const SRS = {
     const out = [];
     for (const c of SRS.drillable(cards)) {
       const e = SRS.entryFor(state, c.id);
-      if (e.due <= nowIso) out.push([c, e]);
+      if (e.due > nowIso) continue;
+      // The reverse direction waits until the first one has graduated
+      // (mirrors drill.py due_cards).
+      if (e.reps === 0) {
+        const sib = state[SRS.siblingId(c.id)];
+        if (sib && sib.reps > 0 && sib.interval_min < SRS.GRADUATED_MIN) continue;
+      }
+      out.push([c, e]);
     }
     out.sort((x, y) => {
       const nx = x[1].reps === 0 ? 1 : 0, ny = y[1].reps === 0 ? 1 : 0;
